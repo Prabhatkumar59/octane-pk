@@ -1,0 +1,35 @@
+---
+name: "Audit"
+on: # yamllint disable-line rule:truthy
+  push:
+  pull_request:
+  schedule:
+  - cron: "0 0 * * 1"
+  workflow_dispatch:
+jobs:
+  Audit:
+    runs-on: "ubuntu-24.04"
+    env:
+      DOCKER_USER: "${{ secrets.DOCKER_USER }}"
+      DOCKER_TOKEN: "${{ secrets.DOCKER_TOKEN }}"
+      SNYK_TOKEN: "${{ secrets.SNYK_TOKEN }}"
+    steps:
+    - name: "mitigate gh actions low disk capacity"
+      run: "rm -rf /opt/hostedtoolcache"
+    - uses: "actions/checkout@v4"
+    - uses: "actions/setup-go@v5"
+      with:
+        go-version: "1.24.0"
+    - name: "provision go tools"
+      run: "make go"
+    - name: "install docker scout"
+      run: |
+        curl -fsSL https://raw.githubusercontent.com/docker/scout-cli/main/install.sh -o install-scout.sh
+        sh install-scout.sh
+    - name: "provision docker scout"
+      run: "docker login -u \"$DOCKER_USER\" -p \"$DOCKER_TOKEN\""
+    - name: "install snyk"
+      run: |
+        sudo curl -Lo /bin/snyk https://downloads.snyk.io/cli/stable/snyk-linux
+        sudo chmod a+x /bin/snyk
+    - run: "mage audit"
